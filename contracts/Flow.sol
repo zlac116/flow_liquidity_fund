@@ -200,7 +200,7 @@ contract Flow {
   // }
 
   // 4. Get Accured Interest
-  function getAccruedInterest(address _stablecoin) public view returns(uint _accrued) {
+  function getAccruedInterest(address _stablecoin) external view returns(uint accrued) {
     uint balance = investorStake[_stablecoin][msg.sender];
     
     uint duration = deadline.sub(start);
@@ -218,9 +218,10 @@ contract Flow {
     uint timePassedReturn = rate.mul(balance).mul(timePassedBasis).div(100 * 100 * 100 * 100); // in % bp
     // emit Debug(timePassedReturn);
 
-    _accrued = block.timestamp >= deadline ? durationReturn : timePassedReturn;
-    // emit Debug(_accrued);
-    return _accrued;
+    accrued = block.timestamp >= deadline ? durationReturn : timePassedReturn;
+
+    // emit Debug(accrued);
+    return accrued;
   }
 
 }
