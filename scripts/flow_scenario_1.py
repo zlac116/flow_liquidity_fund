@@ -7,8 +7,8 @@ chain = Chain()
 def main():
     decimal = 1e18
     quorum = 2
-    maturity = 36 # in days
-    time_passed = 20
+    maturity = 365 # in days
+    time_passed = 365 # in days
     secs_in_day = 24 * 60 * 60
     admins = accounts[1:4] # 3 admins
     bank = accounts[7:9]
@@ -36,9 +36,9 @@ def main():
 
     # print(f'start: {flow.start()}\nnow: {chain.time()}\nchange: {chain.time() - flow.start()}')
     mUSDC_get_interest = flow.getAccruedInterest(mUSDC.address, {"from":investors[0]}) / decimal
-    mDAI_get_interest = flow.getAccruedInterest(mDAI.address, {"from":investors[0]}) / decimal
+    # mDAI_get_interest = flow.getAccruedInterest(mDAI.address, {"from":investors[0]}) / decimal
     print(f'mUSDC interest: {mUSDC_get_interest}')
-    print(f'mDAI interest: {mDAI_get_interest}')
+    # print(f'mDAI interest: {mDAI_get_interest}')
 
 if __name__ == "__main__":
     main()
