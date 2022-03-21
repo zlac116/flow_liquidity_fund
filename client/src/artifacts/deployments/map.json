@@ -1,0 +1,16 @@
+{
+  "dev": {
+    "DaiToken": [
+      "0xcB3118cA8d0b97209B11428e7d513Ec7e3a18b1e"
+    ],
+    "Flow": [
+      "0x8BF3fDD64381FACcd8E3814824c0FB1d4D5E7262"
+    ],
+    "UsdCircleToken": [
+      "0xDf020eb1fe0E84dD7a7f2fEefbfca4A4A2953c84"
+    ],
+    "UsdTetherToken": [
+      "0xe033c33c05879aF24bb66D0848F2Ffe4CEF42f6A"
+    ]
+  }
+}
