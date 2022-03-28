@@ -732,25 +732,31 @@ contract Flow {
   State public state = State.ACTIVE;
 
   // Fund
-  uint public deadline;
-  uint public rate = 5000; // in % bp
-  uint constant secondsInYear = 365 * 24 * 60 * 60;
   uint public start;
+  uint public deadline;
+  uint public duration;
+  uint public rate; // in % bp
+  uint public constant daysToSeconds = 24 * 60 * 60; 
+  uint public constant secondsInYear = 365 * daysToSeconds;
   address[] public permittedStablecoins;
   FlowReceiptToken public flowReceiptToken;
   address public flowReceiptTokenAddress;
   
-  // struct Share {
-  //   uint amount;
-  //   address investor;
-  //   address stable;
-  // }
+  struct Stake {
+    uint id;
+    uint amount;
+    address stablecoin;
+    uint timestamp;
+    bool isDeposit;
+  }
   // Investors
   address[] public investors;
   mapping (address => mapping (address => bool)) public hasInvested;
   mapping (address => mapping (address => bool)) public isInvesting;
   mapping (address => mapping (address => uint)) public investorStake;
-  uint public availableFunds;
+  mapping (address => Stake) public investorStakeRecord;
+  mapping(address => uint) public availableFunds;
+  uint public nextStakeId;
 
   // Multi-sig
   uint public quorum;
@@ -769,7 +775,27 @@ contract Flow {
   uint public nextId;
 
   // mapping (address => bool) public flowAdminsMap;
-  mapping (address => mapping (address => uint)) public flowWithdrawals;
+  mapping (address => uint) public flowActivity;
+
+  // Flow Stop multi-sig
+  struct Stop {
+      uint id;
+      uint approvals;
+      bool stopped;
+  }
+  mapping (uint => Stop) public flowStop;
+  mapping (address => mapping (uint => bool)) public stopApprovals;
+  uint public stopNextId;
+
+  // Flow Start multi-sig
+  struct Start {
+      uint id;
+      uint approvals;
+      bool started;
+  }
+  mapping (uint => Start) public flowStart;
+  mapping (address => mapping (uint => bool)) public startApprovals;
+  uint public startNextId;
 
   // Events
   event TokenMinted (
@@ -790,7 +816,9 @@ contract Flow {
 
   constructor (
     uint _quorum,
-    uint maturity,
+    uint _start,
+    uint tenor,
+    uint _rate,
     address[] memory _flowAdmins,
     address[] memory _flowWithdrawalAddresses, 
     address[] memory _permittedStablecoins)
@@ -799,13 +827,23 @@ contract Flow {
       require (_flowAdmins.length >= 2, "minimum 2 admins");
       require (_quorum >= 2, "minimum quorum 2");
       require (_quorum <= 3, "maximum quorum 3");
-      require(maturity > 0, "maturity must be greater than 0");
+      require(tenor > 0, "tenor must be greater than 0");
+      require(_rate > 500, "minimum rate is 5%");
       require(_quorum < _flowAdmins.length, "quorum must be less than number of flow admins");
       require(_flowWithdrawalAddresses.length == 2, "must have 2 withdrawal addresses");
+      bool isStablecoinZeroAddr = false;
+      for (uint i = 0; i < _permittedStablecoins.length; i++) {
+        if (address(_permittedStablecoins[i]) == address(0)) {
+            isStablecoinZeroAddr = true;
+        }
+      }
       // require that stablecoins are not address(0)
+      require(!isStablecoinZeroAddr, "permitted stablecoin cannot be the zero address");
       quorum = _quorum;
-      start = block.timestamp;
-      deadline = start + maturity * 24 * 60 * 60;
+      start = block.timestamp + _start.mul(daysToSeconds); // fund start in unix time
+      deadline = start + tenor.mul(daysToSeconds); // fund end in unix time
+      duration = deadline.sub(start); // in secs
+      rate = _rate; // interest in bps
       flowAdmins = _flowAdmins;
       // _initFlowAdmins(_flowAdmins);
       flowWithdrawalAddresses = _flowWithdrawalAddresses;
@@ -847,9 +885,11 @@ contract Flow {
 
   function deposit(address _stablecoin, uint _amount) permittedStablecoinsOnly(_stablecoin) public {
     // Require State Active
-    require(state == State.ACTIVE);
+    require(state == State.ACTIVE, "state must be ACTIVE");
+    // Require before start
+    require(block.timestamp < start, "fund start passed");
     // Require deadline passed
-    require(block.timestamp < deadline, "deadline passed");
+    // require(block.timestamp < deadline, "deadline passed");
     require(_amount > 0, "amount cannot be 0");
 
     require(IERC20(_stablecoin).balanceOf(msg.sender) >= _amount, "insuffcient stablecoin balance");
@@ -858,9 +898,17 @@ contract Flow {
     IERC20(_stablecoin).transferFrom(msg.sender, address(this), _amount);
 
     // Update invested balance
+    investorStakeRecord[msg.sender] = Stake(
+        nextStakeId,
+        _amount,
+        _stablecoin,
+        block.timestamp,
+        true
+    );
     investorStake[_stablecoin][msg.sender] += _amount;
+    nextStakeId++; // increment next stake id
     // Update available funds
-    availableFunds += _amount;
+    availableFunds[_stablecoin] += _amount;
 
     // Add user to investors array *only* if they haven't invested before
     if (!hasInvested[_stablecoin][msg.sender]) {
@@ -879,9 +927,9 @@ contract Flow {
 
   // 2. Withdraw Stables (Investor)
   
-  function withdraw(address _stablecoin, uint _amount) public {
+  function withdraw(address _stablecoin) public {
     // Require State Active
-    require(state == State.ACTIVE);
+    require(state == State.ACTIVE, "state must be ACTIVE");
     // Require deadline passed
     require(block.timestamp >= deadline, "deadline has not been reached");
 
@@ -889,20 +937,28 @@ contract Flow {
     uint balance = investorStake[_stablecoin][msg.sender];
 
     // Require amount greater than 0
-    require(balance >= _amount, "insufficient investor balance");
+    require(balance > 0, "insufficient investor balance");
 
     // transfer stablecoin
-    IERC20(_stablecoin).transfer(msg.sender, _amount);
+    IERC20(_stablecoin).transfer(msg.sender, balance + _getRewards(balance));
 
     // Update investor stake
-    investorStake[_stablecoin][msg.sender] -= _amount;
+    investorStakeRecord[msg.sender] = Stake(
+        nextStakeId,
+        balance,
+        _stablecoin,
+        block.timestamp,
+        false
+    );
+    investorStake[_stablecoin][msg.sender] -= balance;
+    nextStakeId ++; // increment next stake id
     // Update available funds
-    availableFunds -= _amount;
+    availableFunds[_stablecoin] -= balance;
 
     // Burn receipt token
-    flowReceiptToken.burn(msg.sender, _amount);
+    flowReceiptToken.burn(msg.sender, balance);
 
-    emit TokenBurnt(msg.sender, _amount);
+    emit TokenBurnt(msg.sender, balance);
 
     // Update investing status
     if (investorStake[_stablecoin][msg.sender] == 0) {
@@ -918,7 +974,7 @@ contract Flow {
     address _stablecoin)
     external permittedStablecoinsOnly(_stablecoin) flowAdminOnly() {
       // Require State Active
-      require(state == State.ACTIVE);
+    //   require(state == State.ACTIVE);
       // Require address is listed
       bool isWithdrawAddress = false;
       for (uint i = 0; i < flowWithdrawalAddresses.length; i++) {
@@ -944,7 +1000,7 @@ contract Flow {
   // 3b. Send Flow Transfer
   function flowTransferTo(uint id) flowAdminOnly() external {
     // Require State Active
-    require(state == State.ACTIVE);
+    // require(state == State.ACTIVE);
     // require transfer has not been sent
     require(flowTransfers[id].sent == false, 'transfer has already been sent');
 
@@ -961,61 +1017,107 @@ contract Flow {
       IERC20 stablecoin = IERC20(flowTransfers[id].stablecoin);
       stablecoin.transfer(to, amount); // make transfer
 
-      flowWithdrawals[address(stablecoin)][to] += amount; // update total flow withdrawals
+      flowActivity[address(stablecoin)] += amount; // update total flow activity
 
-      availableFunds -= amount; // Update available funds
+      availableFunds[address(stablecoin)] -= amount; // Update available funds
       emit Withdrawal(to, amount);
 
       return;
     }
-    // transfer stablecoin to permitted address
-    // stablecoin.transfer(_to, _amount);
-
-    // // update total flow withdrawals
-    // flowWithdrawals[_stablecoin][_to] += _amount;
-
-    // // Update available funds
-    // availableFunds -= _amount;
-
-    // emit Withdrawal(_to, _amount);
-
   }
 
-  // 4a. Bank Deposit
+  // 4. Flow Deposit
 
-  // receive() payable public {
-  //   availableFunds += 
-  // }
+  function flowDeposit(uint _amount, address _stablecoin) 
+    external permittedStablecoinsOnly(_stablecoin) flowAdminOnly() {
+      // 
+      require(_amount > 0, "amount cannot be 0");
+      require(IERC20(_stablecoin).balanceOf(msg.sender) >= _amount, "insuffcient stablecoin balance");
 
-  // 4. Get Accured Interest
-  function getAccruedInterest(address _stablecoin) external view returns(uint accrued) {
-    require(isInvesting[_stablecoin][msg.sender] == true, "investors only");
-    uint balance = investorStake[_stablecoin][msg.sender];
-    
-    uint duration = deadline.sub(start);
-    uint durationBasis = duration.mul(100 * 100).div(secondsInYear); // in % bp
-
-    uint timePassed = block.timestamp.sub(start);
-    uint timePassedBasis = timePassed.mul(100 * 100).div(secondsInYear); // in % bp
-
-    uint durationReturn = rate.mul(balance).mul(durationBasis).div(100 * 100 * 100 * 100); // in % bp
-    uint timePassedReturn = rate.mul(balance).mul(timePassedBasis).div(100 * 100 * 100 * 100); // in % bp
-
-    accrued = block.timestamp >= deadline ? durationReturn : timePassedReturn;
-
-    return accrued;
+      // Transfer stablecoin to this contract  
+      IERC20(_stablecoin).transferFrom(msg.sender, address(this), _amount);
+      
+      flowActivity[_stablecoin] -= _amount; // Update total flow activity
+      availableFunds[_stablecoin] += _amount; // Update available funds
+      
   }
 
-  // 5. Emergency STOP
-  function flowStop() flowAdminOnly() external {
-    require(state != State.INACTIVE, "state must be ACTIVE");
-    state = State.INACTIVE;
+  // 5a. Emergency STOP
+
+  function flowCreateStop() external flowAdminOnly() {
+    // Require State is Active
+    require(state == State.ACTIVE, "state must be ACTIVE");
+    flowStop[stopNextId] = Stop(
+      stopNextId,
+      0,
+      false
+    );
+    stopNextId ++;
+  }
+
+  function flowSetStop(uint id) flowAdminOnly() external {
+    require(state == State.ACTIVE, "state must be ACTIVE");
+    require(flowStop[id].stopped == false, 'state has aready been switched to INACTIVE');
+    if (stopApprovals[msg.sender][id] == false) {
+      stopApprovals[msg.sender][id] = true;
+      flowStop[id].approvals++;
+    }
+    if (flowStop[id].approvals >= quorum) {
+      flowStop[id].stopped = true;
+      state = State.INACTIVE;
+      return;
+    }
   }
   
-  // 5. Emergency START
-  function flowRestart() flowAdminOnly() external {
-    require(state != State.ACTIVE, "state must be INACTIVE");
-    state = State.ACTIVE;
+  // 5b. RESTART
+  function flowCreateRestart() external flowAdminOnly() {
+    // Require State is Inactive
+    require(state == State.INACTIVE, "state must be INACTIVE");
+    flowStart[startNextId] = Start(
+      startNextId,
+      0,
+      false
+    );
+    startNextId ++;
+  }
+
+  function flowSetRestart(uint id) flowAdminOnly() external {
+    require(state == State.INACTIVE, "state must be INACTIVE");
+    require(flowStart[id].started == false, 'state has aready been switched to ACTIVE');
+    if (startApprovals[msg.sender][id] == false) {
+      startApprovals[msg.sender][id] = true;
+      flowStart[id].approvals++;
+    }
+    if (flowStart[id].approvals >= quorum) {
+      flowStart[id].started = true;
+      state = State.ACTIVE;
+      return;
+    }
+  }
+
+  // 6. Get Accured Interest
+  // function getAccruedInterest(address _stablecoin) external view returns(uint accrued) {
+  //   require(isInvesting[_stablecoin][msg.sender] == true, "investors only");
+  //   uint balance = investorStake[_stablecoin][msg.sender];
+    
+  //   uint duration = deadline.sub(start);
+  //   uint durationBasis = duration.mul(100 * 100).div(secondsInYear); // in % bp
+
+  //   uint timePassed = block.timestamp.sub(start);
+  //   uint timePassedBasis = timePassed.mul(100 * 100).div(secondsInYear); // in % bp
+
+  //   uint durationReturn = rate.mul(balance).mul(durationBasis).div(100 * 100 * 100 * 100); // in % bp
+  //   uint timePassedReturn = rate.mul(balance).mul(timePassedBasis).div(100 * 100 * 100 * 100); // in % bp
+
+  //   accrued = block.timestamp >= deadline ? durationReturn : timePassedReturn;
+
+  //   return accrued;
+  // }
+
+  function _getRewards(uint balance) internal view returns(uint rewards) {
+    // uint duration = deadline.sub(start);
+    rewards = balance.mul(rate).div(10000).mul(duration).div(secondsInYear);
+    return rewards;
   }
 
 }
