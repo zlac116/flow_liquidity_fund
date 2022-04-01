@@ -2,39 +2,13 @@
   "contracts": {
     "DaiToken": "66b0d703084aed440d600f2ad49567426db74d9a",
     "ERC20": "37a1f51a4d7aa4577f24381b261ee19037229504",
-    "Flow": "3fe5dfad8abe39acab37c1502643645a4d1cfa05",
+    "Flow": "d9fe224f120ebcd666ebc3bbf51358886719da1b",
     "FlowReceiptToken": "0ad3e35ae60de6d6c8fb3ee19a3a936850537bf6",
     "SafeMath": "1ce946f6a4eaa185320328620ccf999b9e86db7c",
     "UsdCircleToken": "c528959abdf02b5a73346ce1421120242257f1c6",
     "UsdTetherToken": "8091e6fa1a194fd73acb5026e4b68fb37061b658"
   },
   "tests": {
-    "tests/test_flow_admins.py": {
-      "coverage": false,
-      "isolated": [
-        "DaiToken",
-        "ERC20",
-        "Flow",
-        "FlowReceiptToken",
-        "SafeMath",
-        "UsdCircleToken",
-        "UsdTetherToken"
-      ],
-      "results": "..........",
-      "sha1": "fd4e38b76f1708f5fdfb07a8b18d51c0c5897b0f",
-      "txhash": [
-        "0a819439ddf4aab7b71ee6b45162dcb6fd18935b",
-        "575b502f36b3f4eec22f84059f77dafba5d33421",
-        "5946530320ed2865cb5945d2b3421c052a1eb5c3",
-        "8173ee8de0fe8f8e2406dc911beda3b72ed830f5",
-        "97d460d04997dfee21d1933493a3b8a476b9e99a",
-        "d492971e1a0ccb2a33e49a91b32eaab69015d928",
-        "d79c18f09a9d160479c525de8119814d62c04d8d",
-        "e33eae1e96b58e3bd9d98d61873872e453695bac",
-        "ed3607db9008fe780cfd654522fa448fc9032c9a",
-        "fb5528697114227ebb858de1420ed5bb373276c8"
-      ]
-    },
     "tests/test_flow_all.py": {
       "coverage": false,
       "isolated": [
@@ -47,65 +21,28 @@
         "UsdTetherToken"
       ],
       "results": "..................",
-      "sha1": "ca5af4a26cdbdf23e4d9f349436abe00ad2a8b66",
+      "sha1": "7afdb4083a4345effbfbceb7253e0d858dc135c3",
       "txhash": [
-        "0a819439ddf4aab7b71ee6b45162dcb6fd18935b",
-        "453b3200cf5c6c87232416b2d0367c8c11e228f6",
-        "502b0d244e1673c6bc4ecb9fce2a50b9f9e299e3",
-        "575b502f36b3f4eec22f84059f77dafba5d33421",
-        "5946530320ed2865cb5945d2b3421c052a1eb5c3",
-        "8173ee8de0fe8f8e2406dc911beda3b72ed830f5",
-        "97d460d04997dfee21d1933493a3b8a476b9e99a",
-        "b40e71e732ceecab5cc913c78e4b0b4c873101cf",
-        "b430b8e738c53a9047a5c917b590ea78c7175855",
-        "d492971e1a0ccb2a33e49a91b32eaab69015d928",
-        "d79c18f09a9d160479c525de8119814d62c04d8d",
-        "e33eae1e96b58e3bd9d98d61873872e453695bac",
-        "ed3607db9008fe780cfd654522fa448fc9032c9a",
-        "f1a2f938917b03451fb93527621cc2def7566e2b",
-        "fb5528697114227ebb858de1420ed5bb373276c8"
-      ]
-    },
-    "tests/test_flow_deposit.py": {
-      "coverage": false,
-      "isolated": [
-        "DaiToken",
-        "ERC20",
-        "Flow",
-        "FlowReceiptToken",
-        "SafeMath",
-        "UsdCircleToken",
-        "UsdTetherToken"
-      ],
-      "results": "....",
-      "sha1": "2d00b7d90ac25a08e94a6c7ea07c6694c536bc9b",
-      "txhash": [
-        "453b3200cf5c6c87232416b2d0367c8c11e228f6",
-        "502b0d244e1673c6bc4ecb9fce2a50b9f9e299e3",
-        "b430b8e738c53a9047a5c917b590ea78c7175855"
-      ]
-    },
-    "tests/test_flow_withdraw.py": {
-      "coverage": false,
-      "isolated": [
-        "DaiToken",
-        "ERC20",
-        "Flow",
-        "FlowReceiptToken",
-        "SafeMath",
-        "UsdCircleToken",
-        "UsdTetherToken"
-      ],
-      "results": "...",
-      "sha1": "01f2abba68a7b24670fdc9247f509d81c363dd73",
-      "txhash": [
-        "b40e71e732ceecab5cc913c78e4b0b4c873101cf",
-        "f1a2f938917b03451fb93527621cc2def7566e2b"
+        "040f4153383ed3110fa765c6ac2aec95c5e4d5e7",
+        "1b16bd9ab338eb5a27e57ba67a05d887ddfdf926",
+        "3bc400daa7c16fb0e4f08a99a07f4686b9d8b24e",
+        "41ce9dc3b4a8118e618b4658a7c86eb9ee0f5c15",
+        "4ba6054db136ff266b1fcc5470e18a631e4359c3",
+        "58cceeef81ee1f92c56aaf7ecfd99753247d7849",
+        "5bc0a3e025643697234b257a6618754c7e5d3106",
+        "62a607ae5807092ce7cd99f6b21a7b47838a52ce",
+        "75a68e59c94748306347731fd035a24fa9852144",
+        "b0542254f45b8041a95da122e7b10bc5cb72efb4",
+        "bd38f06948738b03c629273c2e5022aa18828412",
+        "c2e88e4390224e3398c7e71db805c530ed5ab8ee",
+        "cac463dc16df480247835d3756c5226862ac8ccc",
+        "d6b98679be9fa10175e9a218189fe9cd512eeb40",
+        "daaad8991da749e512c33df95a5be197ef3f91cb"
       ]
     }
   },
   "tx": {
-    "0a819439ddf4aab7b71ee6b45162dcb6fd18935b": {
+    "040f4153383ed3110fa765c6ac2aec95c5e4d5e7": {
       "Flow": {
         "1": [
           [],
@@ -114,22 +51,187 @@
         ]
       }
     },
-    "453b3200cf5c6c87232416b2d0367c8c11e228f6": {
+    "1b16bd9ab338eb5a27e57ba67a05d887ddfdf926": {
+      "Flow": {
+        "1": [
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "3bc400daa7c16fb0e4f08a99a07f4686b9d8b24e": {
       "Flow": {
         "1": [
           [
-            17,
+            11
+          ],
+          [
+            59
+          ],
+          []
+        ]
+      }
+    },
+    "41ce9dc3b4a8118e618b4658a7c86eb9ee0f5c15": {
+      "Flow": {
+        "1": [
+          [
+            11,
+            12,
+            13
+          ],
+          [
+            61
+          ],
+          [
+            59,
+            60
+          ]
+        ]
+      }
+    },
+    "4ba6054db136ff266b1fcc5470e18a631e4359c3": {
+      "Flow": {
+        "1": [
+          [
+            18,
+            19
+          ],
+          [
+            63
+          ],
+          [
+            62
+          ]
+        ]
+      }
+    },
+    "58cceeef81ee1f92c56aaf7ecfd99753247d7849": {
+      "Flow": {
+        "1": [
+          [
+            18
+          ],
+          [
+            62
+          ],
+          []
+        ]
+      }
+    },
+    "5bc0a3e025643697234b257a6618754c7e5d3106": {
+      "Flow": {
+        "1": [
+          [
+            11,
+            12
+          ],
+          [
+            60
+          ],
+          [
+            59
+          ]
+        ]
+      }
+    },
+    "62a607ae5807092ce7cd99f6b21a7b47838a52ce": {
+      "Flow": {
+        "1": [
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "75a68e59c94748306347731fd035a24fa9852144": {
+      "Flow": {
+        "1": [
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "b0542254f45b8041a95da122e7b10bc5cb72efb4": {
+      "Flow": {
+        "1": [
+          [
+            35
+          ],
+          [
+            70
+          ],
+          []
+        ]
+      },
+      "UsdCircleToken": {
+        "1": [
+          [
+            2
+          ],
+          [],
+          []
+        ],
+        "2": [
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "bd38f06948738b03c629273c2e5022aa18828412": {
+      "Flow": {
+        "1": [
+          [
+            18
+          ],
+          [
+            62
+          ],
+          []
+        ]
+      }
+    },
+    "c2e88e4390224e3398c7e71db805c530ed5ab8ee": {
+      "Flow": {
+        "1": [
+          [
+            11
+          ],
+          [
+            59
+          ],
+          []
+        ]
+      }
+    },
+    "cac463dc16df480247835d3756c5226862ac8ccc": {
+      "Flow": {
+        "1": [
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "d6b98679be9fa10175e9a218189fe9cd512eeb40": {
+      "Flow": {
+        "1": [
+          [
             18,
             19,
-            20
+            20,
+            21
           ],
           [
-            78
+            65
           ],
           [
-            75,
-            76,
-            77
+            62,
+            63,
+            64
           ]
         ]
       },
@@ -148,184 +250,21 @@
         ]
       }
     },
-    "502b0d244e1673c6bc4ecb9fce2a50b9f9e299e3": {
-      "Flow": {
-        "1": [
-          [],
-          [],
-          []
-        ]
-      }
-    },
-    "575b502f36b3f4eec22f84059f77dafba5d33421": {
+    "daaad8991da749e512c33df95a5be197ef3f91cb": {
       "Flow": {
         "1": [
           [
-            17
+            11,
+            12,
+            13
           ],
           [
-            75
-          ],
-          []
-        ]
-      }
-    },
-    "5946530320ed2865cb5945d2b3421c052a1eb5c3": {
-      "Flow": {
-        "1": [
-          [],
-          [],
-          []
-        ]
-      }
-    },
-    "8173ee8de0fe8f8e2406dc911beda3b72ed830f5": {
-      "Flow": {
-        "1": [
-          [],
-          [],
-          []
-        ]
-      }
-    },
-    "97d460d04997dfee21d1933493a3b8a476b9e99a": {
-      "Flow": {
-        "1": [
-          [],
-          [],
-          []
-        ]
-      }
-    },
-    "b40e71e732ceecab5cc913c78e4b0b4c873101cf": {
-      "Flow": {
-        "1": [
-          [
-            31,
-            32,
-            33
+            61
           ],
           [
-            82
-          ],
-          [
-            80,
-            81
+            59,
+            60
           ]
-        ]
-      }
-    },
-    "b430b8e738c53a9047a5c917b590ea78c7175855": {
-      "Flow": {
-        "1": [
-          [
-            17,
-            18
-          ],
-          [
-            76
-          ],
-          [
-            75
-          ]
-        ]
-      }
-    },
-    "d492971e1a0ccb2a33e49a91b32eaab69015d928": {
-      "Flow": {
-        "1": [
-          [
-            31
-          ],
-          [
-            80
-          ],
-          []
-        ]
-      }
-    },
-    "d79c18f09a9d160479c525de8119814d62c04d8d": {
-      "Flow": {
-        "1": [
-          [
-            17
-          ],
-          [
-            75
-          ],
-          []
-        ]
-      }
-    },
-    "e33eae1e96b58e3bd9d98d61873872e453695bac": {
-      "DaiToken": {
-        "0": [
-          [],
-          [],
-          []
-        ],
-        "1": [
-          [
-            2
-          ],
-          [],
-          []
-        ]
-      },
-      "Flow": {
-        "1": [
-          [
-            0,
-            1,
-            2,
-            3
-          ],
-          [
-            67,
-            69
-          ],
-          [
-            67,
-            68
-          ]
-        ]
-      }
-    },
-    "ed3607db9008fe780cfd654522fa448fc9032c9a": {
-      "Flow": {
-        "1": [
-          [],
-          [],
-          []
-        ]
-      }
-    },
-    "f1a2f938917b03451fb93527621cc2def7566e2b": {
-      "Flow": {
-        "1": [
-          [
-            31,
-            32
-          ],
-          [
-            81
-          ],
-          [
-            80
-          ]
-        ]
-      }
-    },
-    "fb5528697114227ebb858de1420ed5bb373276c8": {
-      "Flow": {
-        "1": [
-          [
-            31
-          ],
-          [
-            80
-          ],
-          []
         ]
       }
     }

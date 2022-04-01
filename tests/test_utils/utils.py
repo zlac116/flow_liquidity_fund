@@ -50,8 +50,8 @@ def deposit(depositor, token, deposit_amt, contract):
   token.approve(contract.address, deposit_amt, {'from': depositor})
   contract.deposit(token.address, deposit_amt, {'from': depositor})
 
-def withdraw(depositor, token, contract):
-  contract.withdraw(token.address, {'from': depositor})
+def withdraw(depositor, contract):
+  contract.withdraw({'from': depositor})
 
 def stop(contract, admin_1, admin_2):
   contract.flowCreateStop({'from': admin_1})

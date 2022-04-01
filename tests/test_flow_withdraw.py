@@ -36,14 +36,14 @@ def flow(Flow, mUSDC, mDAI):
     START_DAYS,
     TENOR_DAYS,
     RATE_BPS,
-    accounts[1:4],
-    accounts[7:9],
-    [mUSDC.address, mDAI.address]
+    accounts[1:5],
+    accounts[9],
+    mUSDC.address,
   )
   mUSDC.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
   mDAI.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
   return flow
-
+  
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
   pass
@@ -58,20 +58,43 @@ def test_withdraw(flow, mUSDC):
   utils.approve(utils.flow_receipt_token(flow), flow.address, DEPOSIT_AMT, depositor)
   init_balance_stable = mUSDC.balanceOf(depositor)
   init_balance_flow_receipt = utils.flow_receipt_token(flow).balanceOf(depositor)
-  txn = flow.withdraw(mUSDC.address, {'from': depositor})
+  txn = flow.withdraw({'from': depositor})
   end_balance_stable = mUSDC.balanceOf(depositor)
   end_balance_flow_receipt = utils.flow_receipt_token(flow).balanceOf(depositor)
   
   assert (end_balance_stable - init_balance_stable) / 1e18 == (DEPOSIT_AMT + REWARDS) / 1e18
   assert end_balance_flow_receipt == 0
   assert (init_balance_flow_receipt - end_balance_flow_receipt) == DEPOSIT_AMT
-  assert flow.investorStake(mUSDC.address, depositor.address) == 0
-  assert flow.isInvesting(mUSDC.address, depositor.address) == False
-  assert flow.hasInvested(mUSDC.address, depositor.address) == True
-  assert flow.availableFunds(mUSDC.address) == 0
+  assert flow.availableFunds() == 0
   assert utils.flow_receipt_token(flow).totalSupply() == 0
   assert txn.events['TokenBurnt']['to'] == depositor
   assert txn.events['TokenBurnt']['amt'] == DEPOSIT_AMT
+
+# should allow non-depositor to withdraw entire investor balance if they hold flow tokens
+def test_withdraw_non_depositor_with_tokens(flow, mUSDC):
+  depositor = accounts[0]
+  redeemer = accounts[5]
+  utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
+  utils.flow_receipt_token(flow).transfer(redeemer, DEPOSIT_AMT, {'from': depositor})
+  utils.chain_sleep(START_SECS + TENOR_SECS)
+  utils.approve(utils.flow_receipt_token(flow), flow.address, DEPOSIT_AMT, redeemer)
+  init_balance_stable = mUSDC.balanceOf(redeemer)
+  init_balance_flow_receipt = utils.flow_receipt_token(flow).balanceOf(redeemer)
+  txn = flow.withdraw({'from': redeemer})
+  end_balance_stable = mUSDC.balanceOf(redeemer)
+  end_balance_flow_receipt = utils.flow_receipt_token(flow).balanceOf(redeemer)
+  
+  assert (end_balance_stable - init_balance_stable) / 1e18 == (DEPOSIT_AMT + REWARDS) / 1e18
+  assert end_balance_flow_receipt == 0
+  assert (init_balance_flow_receipt - end_balance_flow_receipt) == DEPOSIT_AMT
+  assert flow.availableFunds() == 0
+  assert utils.flow_receipt_token(flow).totalSupply() == 0
+  assert txn.events['TokenBurnt']['to'] == redeemer
+  assert txn.events['TokenBurnt']['amt'] == DEPOSIT_AMT
+
+  utils.approve(utils.flow_receipt_token(flow), flow.address, DEPOSIT_AMT, depositor)
+  with brownie.reverts('insufficient investor balance'):
+    flow.withdraw({'from': depositor})
 
 # should not withdraw if deadline not reached
 def test_withdraw_deadline_not_reached(flow, mUSDC):
@@ -80,14 +103,14 @@ def test_withdraw_deadline_not_reached(flow, mUSDC):
   utils.chain_sleep(TENOR_SECS - 5)
   utils.approve(utils.flow_receipt_token(flow), flow.address, DEPOSIT_AMT, depositor)
   with brownie.reverts('deadline has not been reached'):
-    flow.withdraw(mUSDC.address, {'from': depositor})
+    flow.withdraw({'from': depositor})
 
-# should not withdraw if investor does not have suffcient stables invested
+# should not withdraw if investor does not have sufficient stables invested
 def test_withdraw_balance_insufficient(flow, mUSDC):
   depositor = accounts[0]
+  depositor_not_invested = accounts[8]
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
   utils.chain_sleep(START_SECS + TENOR_SECS)
   utils.approve(utils.flow_receipt_token(flow), flow.address, DEPOSIT_AMT, depositor)
-  flow.withdraw(mUSDC.address, {'from': depositor})
   with brownie.reverts('insufficient investor balance'):
-    flow.withdraw(mUSDC.address, {'from': depositor})
+    flow.withdraw({'from': depositor_not_invested})

@@ -724,6 +724,7 @@ contract FlowReceiptToken is ERC20, Ownable {
 
 contract Flow {
   using SafeMath for uint;
+
   // State Machine
   enum State {
     ACTIVE, // deposits and withdrawals allowed
@@ -738,7 +739,7 @@ contract Flow {
   uint public rate; // in % bp
   uint public constant daysToSeconds = 24 * 60 * 60; 
   uint public constant secondsInYear = 365 * daysToSeconds;
-  address[] public permittedStablecoins;
+  address public permittedStablecoin;
   FlowReceiptToken public flowReceiptToken;
   address public flowReceiptTokenAddress;
   
@@ -750,13 +751,13 @@ contract Flow {
     bool isDeposit;
   }
   // Investors
-  address[] public investors;
-  mapping (address => mapping (address => bool)) public hasInvested;
-  mapping (address => mapping (address => bool)) public isInvesting;
-  mapping (address => mapping (address => uint)) public investorStake;
-  mapping (address => Stake) public investorStakeRecord;
-  mapping(address => uint) public availableFunds;
-  uint public nextStakeId;
+  // address[] public investors;
+  // mapping (address => mapping (address => bool)) public hasInvested;
+  // mapping (address => mapping (address => bool)) public isInvesting;
+  // mapping (address => mapping (address => uint)) public investorStake;
+  // mapping (address => Stake) public investorStakeRecord;
+  uint public availableFunds;
+  // uint public nextStakeId;
 
   // Multi-sig
   uint public quorum;
@@ -771,11 +772,9 @@ contract Flow {
   mapping(uint => Transfer) public flowTransfers;
   address[] public flowAdmins; // approvers
   mapping (address => mapping (uint => bool)) public approvals;
-  address[] public flowWithdrawalAddresses;
+  address payable public flowWithdrawalAddress;
   uint public nextId;
-
-  // mapping (address => bool) public flowAdminsMap;
-  mapping (address => uint) public flowActivity;
+  uint public flowActivity;
 
   // Flow Stop multi-sig
   struct Stop {
@@ -820,34 +819,32 @@ contract Flow {
     uint tenor,
     uint _rate,
     address[] memory _flowAdmins,
-    address[] memory _flowWithdrawalAddresses, 
-    address[] memory _permittedStablecoins)
+    address payable _flowWithdrawalAddress, 
+    address _permittedStablecoin)
     {
-      require (_flowAdmins.length <= 4, "maximum 4 admins");
-      require (_flowAdmins.length >= 2, "minimum 2 admins");
-      require (_quorum >= 2, "minimum quorum 2");
-      require (_quorum <= 3, "maximum quorum 3");
+      require (_flowAdmins.length == 4, "must have 4 admins");
+      // require (_flowAdmins.length >= 2, "minimum 2 admins");
+      require (_quorum == 2, "quorum must be 2");
+      // require (_quorum <= 3, "maximum quorum 3");
       require(tenor > 0, "tenor must be greater than 0");
       require(_rate > 500, "minimum rate is 5%");
-      require(_quorum < _flowAdmins.length, "quorum must be less than number of flow admins");
-      require(_flowWithdrawalAddresses.length == 2, "must have 2 withdrawal addresses");
-      bool isStablecoinZeroAddr = false;
-      for (uint i = 0; i < _permittedStablecoins.length; i++) {
-        if (address(_permittedStablecoins[i]) == address(0)) {
-            isStablecoinZeroAddr = true;
+      bool isFlowAdminAddrZeroAddr = false;
+      for (uint i = 0; i < _flowAdmins.length; i++) {
+        if (address(_flowAdmins[i]) == address(0)) {
+            isFlowAdminAddrZeroAddr = true;
         }
       }
-      // require that stablecoins are not address(0)
-      require(!isStablecoinZeroAddr, "permitted stablecoin cannot be the zero address");
+      require(!isFlowAdminAddrZeroAddr, "flow admin addresses cannot be the zero address");
+      require(_flowWithdrawalAddress != address(0), "withdrawal address cannot be the zero address");
+      require(_permittedStablecoin != address(0), "permitted stablecoin cannot be the zero address");
       quorum = _quorum;
       start = block.timestamp + _start.mul(daysToSeconds); // fund start in unix time
       deadline = start + tenor.mul(daysToSeconds); // fund end in unix time
       duration = deadline.sub(start); // in secs
       rate = _rate; // interest in bps
       flowAdmins = _flowAdmins;
-      // _initFlowAdmins(_flowAdmins);
-      flowWithdrawalAddresses = _flowWithdrawalAddresses;
-      permittedStablecoins = _permittedStablecoins;
+      flowWithdrawalAddress = _flowWithdrawalAddress;
+      permittedStablecoin = _permittedStablecoin;
       FlowReceiptToken _flowReceiptToken = new FlowReceiptToken();
       flowReceiptToken = _flowReceiptToken;
       flowReceiptTokenAddress = address(flowReceiptToken);
@@ -865,21 +862,9 @@ contract Flow {
   }
 
   modifier permittedStablecoinsOnly (address _stablecoin) {
-    bool isStablePermitted = false;
-    for (uint i = 0; i < permittedStablecoins.length; i++) {
-      if (_stablecoin == permittedStablecoins[i]) {
-        isStablePermitted = true;
-      }
-    }
-    require(isStablePermitted, "only permitted stablecoins");
+    require(_stablecoin == permittedStablecoin, "only permitted stablecoins");
     _;
   }
-
-  // function _initFlowAdmins(address[] memory _flowAdmins) internal {
-  //   for (uint i = 0; i < _flowAdmins.length; i++) {
-  //     flowAdminsMap[_flowAdmins[i]] = true;
-  //   }
-  // }
 
   // 1. Deposit Stables (Investor)
 
@@ -888,8 +873,7 @@ contract Flow {
     require(state == State.ACTIVE, "state must be ACTIVE");
     // Require before start
     require(block.timestamp < start, "fund start passed");
-    // Require deadline passed
-    // require(block.timestamp < deadline, "deadline passed");
+    // Require sufficient stablecoin balance
     require(_amount > 0, "amount cannot be 0");
 
     require(IERC20(_stablecoin).balanceOf(msg.sender) >= _amount, "insuffcient stablecoin balance");
@@ -897,27 +881,8 @@ contract Flow {
     // Transfer stablecoin to this contract  
     IERC20(_stablecoin).transferFrom(msg.sender, address(this), _amount);
 
-    // Update invested balance
-    investorStakeRecord[msg.sender] = Stake(
-        nextStakeId,
-        _amount,
-        _stablecoin,
-        block.timestamp,
-        true
-    );
-    investorStake[_stablecoin][msg.sender] += _amount;
-    nextStakeId++; // increment next stake id
     // Update available funds
-    availableFunds[_stablecoin] += _amount;
-
-    // Add user to investors array *only* if they haven't invested before
-    if (!hasInvested[_stablecoin][msg.sender]) {
-      investors.push(msg.sender);
-    }
-
-    // Update investing status
-    isInvesting[_stablecoin][msg.sender] = true;
-    hasInvested[_stablecoin][msg.sender] = true;
+    availableFunds += _amount;
 
     // Mint receipt token
     flowReceiptToken.mint(msg.sender, _amount);
@@ -927,70 +892,44 @@ contract Flow {
 
   // 2. Withdraw Stables (Investor)
   
-  function withdraw(address _stablecoin) public {
+  function withdraw() public {
     // Require State Active
     require(state == State.ACTIVE, "state must be ACTIVE");
     // Require deadline passed
     require(block.timestamp >= deadline, "deadline has not been reached");
 
-    // Fetch investing balance
-    uint balance = investorStake[_stablecoin][msg.sender];
+    // check flow token balance
+    require(flowReceiptToken.balanceOf(msg.sender) > 0, "insufficient investor balance");
 
-    // Require amount greater than 0
-    require(balance > 0, "insufficient investor balance");
+    // get investing balance
+    uint balance = flowReceiptToken.balanceOf(msg.sender);
 
     // transfer stablecoin
-    IERC20(_stablecoin).transfer(msg.sender, balance + _getRewards(balance));
+    IERC20(permittedStablecoin).transfer(msg.sender, balance + _getRewards(balance));
 
-    // Update investor stake
-    investorStakeRecord[msg.sender] = Stake(
-        nextStakeId,
-        balance,
-        _stablecoin,
-        block.timestamp,
-        false
-    );
-    investorStake[_stablecoin][msg.sender] -= balance;
-    nextStakeId ++; // increment next stake id
     // Update available funds
-    availableFunds[_stablecoin] -= balance;
+    availableFunds -= balance;
 
     // Burn receipt token
     flowReceiptToken.burn(msg.sender, balance);
 
     emit TokenBurnt(msg.sender, balance);
 
-    // Update investing status
-    if (investorStake[_stablecoin][msg.sender] == 0) {
-      isInvesting[_stablecoin][msg.sender] = false;
-    }
-
   }
 
     // 3a. Create Flow Admin Transfer
   function flowCreateTransfer(
-    uint _amount,
-    address payable _to,
-    address _stablecoin)
-    external permittedStablecoinsOnly(_stablecoin) flowAdminOnly() {
+    uint _amount)
+    external flowAdminOnly() {
       // Require State Active
     //   require(state == State.ACTIVE);
-      // Require address is listed
-      bool isWithdrawAddress = false;
-      for (uint i = 0; i < flowWithdrawalAddresses.length; i++) {
-        if (_to == flowWithdrawalAddresses[i]) {
-          isWithdrawAddress = true;
-        }
-      }
-      require(isWithdrawAddress == true, "withdrawal address is not listed");
-      // Require balance is greater than amount
-      IERC20 stablecoin = IERC20(_stablecoin);
-      require(stablecoin.balanceOf(address(this)) > _amount, "insufficent stablecoin balance");
+      // Require contract has sufficient balance
+      require(IERC20(permittedStablecoin).balanceOf(address(this)) > _amount, "insufficent stablecoin balance");
       flowTransfers[nextId] = Transfer(
         nextId,
         _amount,
-        _stablecoin,
-        _to,
+        permittedStablecoin,
+        flowWithdrawalAddress,
         0,
         false
       );
@@ -1014,12 +953,12 @@ contract Flow {
       address payable to = flowTransfers[id].to;
       uint amount = flowTransfers[id].amount;
 
-      IERC20 stablecoin = IERC20(flowTransfers[id].stablecoin);
-      stablecoin.transfer(to, amount); // make transfer
+      // IERC20 stablecoin = IERC20(flowTransfers[id].stablecoin);
+      IERC20(permittedStablecoin).transfer(to, amount); // make transfer
 
-      flowActivity[address(stablecoin)] += amount; // update total flow activity
+      flowActivity += amount; // update total flow activity
 
-      availableFunds[address(stablecoin)] -= amount; // Update available funds
+      availableFunds -= amount; // Update available funds
       emit Withdrawal(to, amount);
 
       return;
@@ -1037,8 +976,8 @@ contract Flow {
       // Transfer stablecoin to this contract  
       IERC20(_stablecoin).transferFrom(msg.sender, address(this), _amount);
       
-      flowActivity[_stablecoin] -= _amount; // Update total flow activity
-      availableFunds[_stablecoin] += _amount; // Update available funds
+      flowActivity -= _amount; // Update total flow activity
+      availableFunds += _amount; // Update available funds
       
   }
 

@@ -36,9 +36,9 @@ def flow(Flow, mUSDC, mDAI):
     START_DAYS,
     TENOR_DAYS,
     RATE_BPS,
-    accounts[1:4],
-    accounts[7:9],
-    [mUSDC.address, mDAI.address]
+    accounts[1:5],
+    accounts[9],
+    mUSDC.address,
   )
   mUSDC.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
   mDAI.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
@@ -58,11 +58,8 @@ def test_deposit(flow, mUSDC):
   txn = flow.deposit(mUSDC.address, DEPOSIT_AMT, {'from': depositor})
   end_balance = mUSDC.balanceOf(depositor)
 
-  assert flow.investorStake(mUSDC.address, depositor.address) == DEPOSIT_AMT
-  assert flow.isInvesting(mUSDC.address, depositor.address) == True
-  assert flow.hasInvested(mUSDC.address, depositor.address) == True
   assert mUSDC.balanceOf(flow.address) == DEPOSIT_AMT + REWARDS_CONTRACT_DEPOSIT
-  assert flow.availableFunds(mUSDC.address) == DEPOSIT_AMT
+  assert flow.availableFunds() == DEPOSIT_AMT
   assert (init_balance - end_balance) == DEPOSIT_AMT
   assert utils.flow_receipt_token(flow).balanceOf(depositor) == DEPOSIT_AMT
   assert utils.flow_receipt_token(flow).totalSupply() == DEPOSIT_AMT

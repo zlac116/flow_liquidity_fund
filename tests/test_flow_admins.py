@@ -36,14 +36,14 @@ def flow(Flow, mUSDC, mDAI):
     START_DAYS,
     TENOR_DAYS,
     RATE_BPS,
-    accounts[1:4],
-    accounts[7:9],
-    [mUSDC.address, mDAI.address]
+    accounts[1:5],
+    accounts[9],
+    mUSDC.address,
   )
   mUSDC.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
   mDAI.transfer(flow.address, REWARDS_CONTRACT_DEPOSIT, {'from': accounts[0]})
   return flow
-
+  
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
   pass
@@ -53,10 +53,10 @@ def isolation(fn_isolation):
 # should create flow multisig transfer
 def test_create_transfer(flow, mUSDC):
   depositor = accounts[0]
-  bank = accounts[7]
+  bank = accounts[9]
   admin = accounts[1]
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
-  flow.flowCreateTransfer(WITHDRAW_AMT, bank, mUSDC.address, {'from': admin})
+  flow.flowCreateTransfer(WITHDRAW_AMT, {'from': admin})
 
   assert flow.flowTransfers(0)[0] == 0
   assert flow.flowTransfers(0)[1] == WITHDRAW_AMT
@@ -66,75 +66,56 @@ def test_create_transfer(flow, mUSDC):
   assert flow.flowTransfers(0)[5] == False
   assert flow.nextId() == 1
 
-# should not create transfer if stabelcoin is not permitted
-def test_create_transfer_stable_not_permitted(flow, mUSDC, mUSDT):
-  depositor = accounts[0]
-  bank = accounts[7]
-  admin = accounts[1] # admin
-  utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
-  with brownie.reverts('only permitted stablecoins'):
-    flow.flowCreateTransfer(WITHDRAW_AMT, bank, mUSDT.address, {'from': admin})
-
 # should not create transfer if not admin
 def test_create_transfer_not_admin(flow, mUSDC):
   depositor = accounts[0]
-  bank = accounts[7]
-  admin = accounts[4] # not admin
+  admin_unauthorised = accounts[5] # not admin
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
   with brownie.reverts('only flow admins allowed'):
-    flow.flowCreateTransfer(WITHDRAW_AMT, bank, mUSDC.address, {'from': admin})
+    flow.flowCreateTransfer(WITHDRAW_AMT, {'from': admin_unauthorised})
 
 # should not create transfer if stablecoin balance insufficient
 def test_create_transfer_insufficient_balance(flow, mUSDC, mDAI):
   depositor = accounts[0]
-  bank = accounts[7]
   admin = accounts[1] # admin
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
+  utils.chain_sleep(START_SECS + TENOR_SECS)
+  utils.withdraw(depositor, flow)
   with brownie.reverts('insufficent stablecoin balance'):
-    flow.flowCreateTransfer(WITHDRAW_AMT, bank, mDAI.address, {'from': admin})
+    flow.flowCreateTransfer(WITHDRAW_AMT, {'from': admin})
 
 #***********************Transfer (Flow)***********************
 
 # should transfer stablecoins to stored address if admin
 def test_flow_transfer_to(flow, mUSDC):
   depositor = accounts[0]
-  bank = accounts[7]
+  bank = accounts[9]
   admin_1 = accounts[1]
   admin_2 = accounts[2]
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
   init_balance = mUSDC.balanceOf(bank)
-  flow.flowCreateTransfer(WITHDRAW_AMT, bank, mUSDC.address, {'from': admin_1})
+  flow.flowCreateTransfer(WITHDRAW_AMT, {'from': admin_1})
   flow.flowTransferTo(0, {'from': admin_1})
   txn = flow.flowTransferTo(0, {'from': admin_2})
   end_balance = mUSDC.balanceOf(bank)
 
   assert mUSDC.balanceOf(flow.address) == DEPOSIT_AMT - WITHDRAW_AMT + REWARDS_CONTRACT_DEPOSIT
   assert (end_balance - init_balance) == WITHDRAW_AMT
-  assert flow.flowActivity(mUSDC.address) == WITHDRAW_AMT
-  assert flow.availableFunds(mUSDC.address) == DEPOSIT_AMT - WITHDRAW_AMT
+  assert flow.flowActivity() == WITHDRAW_AMT
+  assert flow.availableFunds() == DEPOSIT_AMT - WITHDRAW_AMT
   assert txn.events['Withdrawal']['to'] == bank
   assert txn.events['Withdrawal']['amt'] == WITHDRAW_AMT
 
 # should not transfer stablecoins to stored address if not admin
 def test_flow_transfer_to_not_admin(flow, mUSDC):
   depositor = accounts[0]
-  bank = accounts[7]
   admin_1 = accounts[1] # admin
-  admin_2 = accounts[4] # not admin
+  admin_unauthorised = accounts[5] # not admin
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
-  flow.flowCreateTransfer(WITHDRAW_AMT, bank, mUSDC.address, {'from': admin_1})
+  flow.flowCreateTransfer(WITHDRAW_AMT, {'from': admin_1})
   flow.flowTransferTo(0, {'from': admin_1})
   with brownie.reverts('only flow admins allowed'):
-    flow.flowTransferTo(0, {'from': admin_2})
-
-# # should not withdraw stablecoins to stored address if not permitted
-# def test_flow_transfer_to_stable_not_permitted(flow, mUSDC, mUSDT):
-#   depositor = accounts[0]
-#   bank = accounts[7]
-#   admin = accounts[1]
-#   deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
-#   with brownie.reverts('only permitted stablecoins'):
-#     flow.adminWithdrawTo(mUSDT.address, bank, WITHDRAW_AMT, {'from': admin})
+    flow.flowTransferTo(0, {'from': admin_unauthorised})
 
 #***********************Emergency Stop (Flow)***********************
 
@@ -151,7 +132,7 @@ def test_flow_stop(flow, mUSDC):
   with brownie.reverts('state must be ACTIVE'):
     utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
   with brownie.reverts('state must be ACTIVE'):
-    utils.withdraw(depositor, mUSDC, flow)
+    utils.withdraw(depositor, flow)
 
 # should NOT set contract state to INACTIVE and stop investor deposits and withdrawals
 def test_flow_stop_not_admin(flow):
@@ -175,14 +156,12 @@ def test_flow_start(flow, mUSDC):
   flow.flowCreateRestart({'from': admin_1})
   flow.flowSetRestart(0, {'from': admin_1})
   flow.flowSetRestart(0, {'from': admin_2})
-  rewards = utils.rewards(DEPOSIT_AMT, RATE_BPS / 10000, TENOR_SECS / YEAR_SECS)
 
   assert flow.state() == 0 # state = ACTIVE
   utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
-  assert flow.investorStake(mUSDC, depositor) == DEPOSIT_AMT
   assert mUSDC.balanceOf(flow.address) == DEPOSIT_AMT + REWARDS_CONTRACT_DEPOSIT
   utils.chain_sleep(START_SECS + TENOR_SECS)
-  utils.withdraw(depositor, mUSDC, flow)
+  utils.withdraw(depositor, flow)
   assert mUSDC.balanceOf(flow.address) / 1e18 == (REWARDS_CONTRACT_DEPOSIT - REWARDS) / 1e18
 
 # should NOT set contract state to ACTIVE and start investor deposits and withdrawals
@@ -199,4 +178,4 @@ def test_flow_start_not_admin(flow, mUSDC):
   with brownie.reverts('state must be ACTIVE'):
     utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
   with brownie.reverts('state must be ACTIVE'):
-    utils.withdraw(depositor, mUSDC, flow)
+    utils.withdraw(depositor, flow)
