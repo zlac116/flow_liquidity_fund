@@ -61,6 +61,10 @@ def stop(contract, admin_1, admin_2):
 def flow_receipt_token(contract):
   return interface.IERC20(contract.flowReceiptToken())
 
+def flow_deposit(token, contract, amount, owner):
+  approve(token, contract.address, amount, owner)
+  contract.flowDeposit(amount, {'from': owner})
+
 def rewards(amount, rate, day_count_frac):
   return amount * rate * day_count_frac
 

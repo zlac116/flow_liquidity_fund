@@ -301,6 +301,44 @@ def test_flow_start_not_admin(flow, mUSDC):
   with brownie.reverts('state must be ACTIVE'):
     utils.withdraw(depositor, flow)
 
+#***********************Read-Only Functions***********************
+
+# should return availabe funds
+def test_available_funds(flow, mUSDC):
+  depositor = accounts[0]
+  admin_1 = accounts[1]
+  admin_2 = accounts[2]
+  bank = accounts[9]
+  bank_repay_amount = 10e18
+  contract_final_amount = DEPOSIT_AMT - DEPOSIT_AMT + bank_repay_amount
+  utils.deposit(depositor, mUSDC, DEPOSIT_AMT, flow)
+  flow.flowCreateTransfer(DEPOSIT_AMT, {'from': admin_1})
+  flow.flowTransferTo(0, {'from': admin_1})
+  flow.flowTransferTo(0, {'from': admin_2})
+  mUSDC.transfer(admin_1, bank_repay_amount, {'from': bank})
+  utils.flow_deposit(mUSDC, flow, bank_repay_amount, admin_1)
+
+  assert flow.getAvailableFunds() == contract_final_amount
+
+# should return correct total investor deposits
+def test_investor_deposits(flow, mUSDC):
+  depositor_1 = accounts[0]
+  depositor_2 = accounts[5]
+  depositor_3 = accounts[6]
+  depositor_4 = accounts[7]
+  investor_deposits_total_amount = mUSDC.balanceOf(depositor_1)
+  transfer_to_amt = investor_deposits_total_amount / 4
+
+  for acct in [depositor_2, depositor_3, depositor_4]:
+    mUSDC.transfer(acct, transfer_to_amt, {'from': depositor_1})
+    utils.deposit(acct, mUSDC, transfer_to_amt, flow)
+
+  utils.deposit(depositor_1, mUSDC, transfer_to_amt, flow)
+
+  assert flow.getInvestorDeposits() == investor_deposits_total_amount
+  
+
+
 #***********************Accrued Interest***********************
 
 # should return accrued interest rate

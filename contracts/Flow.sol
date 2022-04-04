@@ -743,13 +743,13 @@ contract Flow {
   FlowReceiptToken public flowReceiptToken;
   address public flowReceiptTokenAddress;
   
-  struct Stake {
-    uint id;
-    uint amount;
-    address stablecoin;
-    uint timestamp;
-    bool isDeposit;
-  }
+  // struct Stake {
+  //   uint id;
+  //   uint amount;
+  //   address stablecoin;
+  //   uint timestamp;
+  //   bool isDeposit;
+  // }
   // Investors
   // address[] public investors;
   // mapping (address => mapping (address => bool)) public hasInvested;
@@ -757,6 +757,8 @@ contract Flow {
   // mapping (address => mapping (address => uint)) public investorStake;
   // mapping (address => Stake) public investorStakeRecord;
   uint public availableFunds;
+  uint public totalDeposits;
+  uint public totalWithdrawals;
   // uint public nextStakeId;
 
   // Multi-sig
@@ -884,6 +886,9 @@ contract Flow {
     // Update available funds
     availableFunds += _amount;
 
+    // Update deposits
+    totalDeposits += _amount;
+
     // Mint receipt token
     flowReceiptToken.mint(msg.sender, _amount);
 
@@ -909,6 +914,9 @@ contract Flow {
 
     // Update available funds
     availableFunds -= balance;
+
+    // Update withdrawals
+    totalWithdrawals += balance;
 
     // Burn receipt token
     flowReceiptToken.burn(msg.sender, balance);
@@ -967,14 +975,14 @@ contract Flow {
 
   // 4. Flow Deposit
 
-  function flowDeposit(uint _amount, address _stablecoin) 
-    external permittedStablecoinsOnly(_stablecoin) flowAdminOnly() {
+  function flowDeposit(uint _amount) 
+    external flowAdminOnly() {
       // 
       require(_amount > 0, "amount cannot be 0");
-      require(IERC20(_stablecoin).balanceOf(msg.sender) >= _amount, "insuffcient stablecoin balance");
+      require(IERC20(permittedStablecoin).balanceOf(msg.sender) >= _amount, "insuffcient stablecoin balance");
 
       // Transfer stablecoin to this contract  
-      IERC20(_stablecoin).transferFrom(msg.sender, address(this), _amount);
+      IERC20(permittedStablecoin).transferFrom(msg.sender, address(this), _amount);
       
       flowActivity -= _amount; // Update total flow activity
       availableFunds += _amount; // Update available funds
@@ -1053,10 +1061,39 @@ contract Flow {
   //   return accrued;
   // }
 
+  // 6. Contract funcs
   function _getRewards(uint balance) internal view returns(uint rewards) {
     // uint duration = deadline.sub(start);
     rewards = balance.mul(rate).div(10000).mul(duration).div(secondsInYear);
     return rewards;
+  }
+
+  // 7. Read-only funcs
+  function getAvailableFunds() external view returns(uint) {
+    return availableFunds;
+  }
+
+  function getFlowActivity() external view returns(uint) {
+    return flowActivity;
+  }
+
+  function getInvestorDeposits() external view returns(uint) {
+    return totalDeposits;
+  }
+
+  function getInvestorWithdrawals() external view returns(uint) {
+    return totalWithdrawals;
+  }
+
+  function getNextTransferId() flowAdminOnly() external view returns(uint) {
+    return nextId;
+  }
+
+  function getNextStopId() flowAdminOnly() external view returns(uint) {
+    return stopNextId;
+  }
+  function getNextStartId() flowAdminOnly() external view returns(uint) {
+    return startNextId;
   }
 
 }
